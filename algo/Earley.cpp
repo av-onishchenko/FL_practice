@@ -23,30 +23,38 @@ void Algo::Scan(char next_symbol, int pos) {
 }
 
 bool Algo::Predict(int pos) {
-  int sz = configurations[pos].size();
-  for (auto it = configurations[pos].begin(); it != configurations[pos].end(); ++it) {
+  bool change = false;
+  for (auto it = prev_new_configurations.begin(); it != prev_new_configurations.end(); ++it) {
     char next_nonterm = (*it).first;
-    if (!curr_gram.nonterminals.count(next_nonterm)) { continue; };
-    for (int k = 0; k < curr_gram.rules[next_nonterm].size(); ++k) {
-      char next_step = curr_gram.rules[next_nonterm][k].second_part[0];
-      Configuration new_conf = Configuration(curr_gram.rules[next_nonterm][k], Position(pos, 0));
-      add(configurations[pos][next_step], new_conf);
+    if (!grammar.nonterminals.count(next_nonterm)) { continue; };
+    for (int k = 0; k < grammar.rules[next_nonterm].size(); ++k) {
+      char next_step = grammar.rules[next_nonterm][k].second_part[0];
+      Configuration new_conf = Configuration(grammar.rules[next_nonterm][k], Position(pos, 0));
+      if (add(configurations[pos][next_step], new_conf)) {
+        add(new_configurations[next_step], new_conf);
+        if (add(prev_new_configurations[next_step], new_conf)) {
+          change = true;
+        }
+      }
     }
   }
-  return sz != configurations[pos].size();
+  return change;
 }
 
 bool Algo::Complete(int pos) {
   bool change = false;
-  for (int i = 0; i < configurations[pos]['\0'].size(); ++i) {
-    int prev_pos = configurations[pos]['\0'][i].pos.external;
-    char prev_step = configurations[pos]['\0'][i].rule.first_part;
+  for (int i = 0; i < prev_new_configurations[EndOfWord].size(); ++i) {
+    int prev_pos = prev_new_configurations[EndOfWord][i].pos.external;
+    char prev_step = prev_new_configurations[EndOfWord][i].rule.first_part;
     for (int j = 0; j < configurations[prev_pos][prev_step].size(); ++j) {
       Configuration new_conf = configurations[prev_pos][prev_step][j];
       ++new_conf.pos.interior;
       char next_step = new_conf.next_step();
       if (add(configurations[pos][next_step], new_conf)) {
-        change = true;
+        add(new_configurations[next_step], new_conf);
+        if (add(prev_new_configurations[next_step], new_conf)) {
+          change = true;
+        }
       }
     }
   }
@@ -54,31 +62,34 @@ bool Algo::Complete(int pos) {
 }
 
 void Algo::fit(const Grammar &input_gram) {
-  curr_gram = input_gram;
-  std::string first_left = std::string(1, curr_gram.start);
-  curr_gram.rules['#'].push_back(Rule('#', first_left));
-  curr_gram.nonterminals.insert('#');
-  curr_gram.start = '#';
+  grammar = input_gram;
+  std::string first_left = std::string(1, grammar.start);
+  grammar.rules['#'].push_back(Rule('#', first_left));
+  grammar.nonterminals.insert('#');
+  grammar.start = '#';
 }
 
 std::string Algo::predict(const std::string &word) {
   configurations.resize(0);
   configurations.resize(word.size() + 1);
-  char first_step = curr_gram.rules[curr_gram.start][0].second_part[0];
-  configurations[0][first_step].push_back(Configuration(curr_gram.rules[curr_gram.start][0], Position(0, 0)));
+  char first_step = grammar.rules[grammar.start][0].second_part[0];
+  configurations[0][first_step].push_back(Configuration(grammar.rules[grammar.start][0], Position(0, 0)));
   for (int i = 0; i <= word.size(); ++i) {
     if (i) {
       Scan(word[i - 1], i);
     }
     bool update = true;
+    prev_new_configurations = configurations[i];
     while (update) {
       update = false;
       update |= Predict(i);
       update |= Complete(i);
+      prev_new_configurations = new_configurations;
+      new_configurations.clear();
     }
   }
-  for (int i = 0; i < configurations[word.size()]['\0'].size(); ++i) {
-    if (!configurations[word.size()]['\0'][i].pos.external) {
+  for (int i = 0; i < configurations[word.size()][EndOfWord].size(); ++i) {
+    if (!configurations[word.size()][EndOfWord][i].pos.external) {
       return "YES";
     }
   }

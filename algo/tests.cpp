@@ -4,7 +4,6 @@
 #pragma once
 
 class AlgoEarleyCase : public ::testing::Test {
-
 };
 
 TEST_F(AlgoEarleyCase, Test1_total) {
@@ -102,6 +101,7 @@ TEST_F(AlgoEarleyCase, Predict_test) {
   algo.fit(input_grammar);
   algo.configurations.resize(6);
   algo.configurations[3]['S'].push_back(Configuration(Rule('S', "aSb"), Position(1, 1)));
+  algo.prev_new_configurations = algo.configurations[3];
   ASSERT_TRUE(algo.Predict(3));
   ASSERT_EQ(algo.configurations[3]['a'].size(), 1);
   ASSERT_EQ(algo.configurations[3]['S'].size(), 2);
@@ -127,6 +127,7 @@ TEST_F(AlgoEarleyCase, Scan_test) {
   algo.fit(input_grammar);
   algo.configurations.resize(6);
   algo.configurations[3]['S'].push_back(Configuration(Rule('S', "aSb"), Position(1, 1)));
+  algo.prev_new_configurations = algo.configurations[3];
   algo.Predict(3);
   algo.Scan('b', 4);
   ASSERT_EQ(algo.configurations[4].size(), 0);
@@ -152,6 +153,7 @@ TEST_F(AlgoEarleyCase, Complete_test) {
   algo.configurations.resize(6);
   algo.configurations[5]['\0'].push_back(Configuration(Rule('S', "aSb"), Position(3, 3)));
   algo.configurations[3]['S'].push_back(Configuration(Rule('S', "SS"), Position(1, 0)));
+  algo.prev_new_configurations = algo.configurations[5];
   ASSERT_TRUE(algo.Complete(5));
   ASSERT_EQ(algo.configurations[5]['S'].size(), 1);
   ASSERT_EQ(algo.configurations[1]['S'].size(), 0);
